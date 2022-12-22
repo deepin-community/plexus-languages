@@ -1,0 +1,30 @@
+plexus-languages (0.9.10-2) unstable; urgency=medium
+
+  * Fixed the build failure caused by the plexus-containers update
+  * Standards-Version updated to 4.4.0
+
+ -- Emmanuel Bourg <ebourg@apache.org>  Mon, 29 Jul 2019 09:26:00 +0200
+
+plexus-languages (0.9.10-1) unstable; urgency=medium
+
+  * New upstream release
+    - Refreshed the patch
+    - Restored the compatibility with the version of Mockito in Debian
+    - Updated the Maven rules
+  * Standards-Version updated to 4.1.5
+  * Switch to debhelper level 11
+  * Use salsa.debian.org Vcs-* URLs
+
+ -- Emmanuel Bourg <ebourg@apache.org>  Mon, 30 Jul 2018 02:04:23 +0200
+
+plexus-languages (0.9.5-2) unstable; urgency=medium
+
+  * Added the missing plexus-component-metadata configuration
+
+ -- Emmanuel Bourg <ebourg@apache.org>  Fri, 15 Dec 2017 00:38:20 +0100
+
+plexus-languages (0.9.5-1) unstable; urgency=medium
+
+  * Initial release (Closes: #883995)
+
+ -- Emmanuel Bourg <ebourg@apache.org>  Sun, 10 Dec 2017 09:49:54 +0100

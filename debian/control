@@ -1,0 +1,28 @@
+Source: plexus-languages
+Section: java
+Priority: optional
+Maintainer: Debian Java Maintainers <pkg-java-maintainers@lists.alioth.debian.org>
+Uploaders: Emmanuel Bourg <ebourg@apache.org>
+Build-Depends:
+ debhelper (>= 11~),
+ default-jdk,
+ junit4 (>= 4.12),
+ libasm-java (>= 6.0-1~),
+ libguice-java (>= 4.0),
+ libmockito-java,
+ libplexus-component-metadata-java (>= 1.5.5),
+ libqdox2-java,
+ maven-debian-helper (>= 2.2)
+Standards-Version: 4.4.0
+Vcs-Git: https://salsa.debian.org/java-team/plexus-languages.git
+Vcs-Browser: https://salsa.debian.org/java-team/plexus-languages
+Homepage: https://github.com/codehaus-plexus/plexus-languages
+
+Package: libplexus-languages-java
+Architecture: all
+Depends: ${maven:Depends}, ${misc:Depends}
+Suggests: ${maven:OptionalDepends}
+Description: Plexus shared language features
+ Plexus Languages maintains shared language features used by the Plexus
+ components, such as parsing or extracting modules information in various
+ ways for the Java language.

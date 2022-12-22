@@ -1,0 +1,3 @@
+
+org.apache.maven.plugins maven-failsafe-plugin * * * *
+org.apache.maven.plugins maven-site-plugin * * * *

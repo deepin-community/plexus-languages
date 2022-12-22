@@ -1,0 +1,14 @@
+Description: Fixes the compatibility with the version of Mockito in Debian
+Author: Emmanuel Bourg <ebourg@apache.org>
+Forwarded: not-needed
+--- a/plexus-java/src/test/java/org/codehaus/plexus/languages/java/jpms/LocationManagerTest.java
++++ b/plexus-java/src/test/java/org/codehaus/plexus/languages/java/jpms/LocationManagerTest.java
+@@ -41,7 +41,7 @@
+ import org.junit.runner.RunWith;
+ import org.mockito.Mock;
+ 
+-@RunWith( org.mockito.junit.MockitoJUnitRunner.class )
++@RunWith( org.mockito.runners.MockitoJUnitRunner.class )
+ public class LocationManagerTest
+ {
+     @Mock
