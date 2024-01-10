@@ -19,9 +19,12 @@ package org.codehaus.plexus.languages.java.version;
  * under the License.
  */
 
-import static org.junit.Assert.assertTrue;
+import static org.hamcrest.CoreMatchers.is;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotEquals;
+import static org.junit.Assert.assertThat;
+import static org.junit.Assert.assertTrue;
 
 import org.junit.Test;
 
@@ -107,6 +110,52 @@ public class JavaVersionTest
         JavaVersion seven = JavaVersion.parse( "7" );
         JavaVersion other = JavaVersion.parse( "7" );
         
+        assertEquals( seven, seven );
         assertEquals( seven, other );
+        assertNotEquals( seven, null );
+        assertNotEquals( seven, new Object() );
+        assertNotEquals( seven, JavaVersion.parse( "8" ) );
+    }
+
+    @Test
+    public void testHascode() {
+        JavaVersion seven = JavaVersion.parse( "7" );
+        JavaVersion other = JavaVersion.parse( "7" );
+        
+        assertEquals( seven.hashCode(), other.hashCode() );
+    }
+
+    @Test
+    public void testToString() {
+        assertEquals( "7", JavaVersion.parse( "7" ).toString() );
+        
+        assertEquals( "Raw version should not be parsed", "!@#$%^&*()", JavaVersion.parse( "!@#$%^&*()" ).toString() );
+    }
+    
+    @Test
+    public void testAsMajor() {
+        assertEquals( JavaVersion.parse( "2" ), JavaVersion.parse( "1.2" ).asMajor() );
+        assertEquals( JavaVersion.parse( "5.0" ), JavaVersion.parse( "5.0" ).asMajor() );
+        // only shift one time
+        assertEquals( JavaVersion.parse( "1.1.2" ).asMajor().asMajor().toString(), "1.2" );
+    }
+    
+    @Test
+    public void testAsMajorEquals() {
+        JavaVersion version = JavaVersion.parse( "1.2" );
+        assertEquals( version, version.asMajor() );
+    }
+    
+    @Test
+    public void testValueWithGroups() {
+        assertThat( JavaVersion.parse( "1" ).getValue( 1 ), is( "1" ) );
+        assertThat( JavaVersion.parse( "1" ).getValue( 2 ), is( "1.0" ) );
+        assertThat( JavaVersion.parse( "1" ).getValue( 3 ), is( "1.0.0" ) );
+        assertThat( JavaVersion.parse( "2.1" ).getValue( 1 ), is( "2" ) );
+        assertThat( JavaVersion.parse( "2.1" ).getValue( 2 ), is( "2.1" ) );
+        assertThat( JavaVersion.parse( "2.1" ).getValue( 3 ), is( "2.1.0" ) );
+        assertThat( JavaVersion.parse( "3.2.1" ).getValue( 1 ), is( "3" ) );
+        assertThat( JavaVersion.parse( "3.2.1" ).getValue( 2 ), is( "3.2" ) );
+        assertThat( JavaVersion.parse( "3.2.1" ).getValue( 3 ), is( "3.2.1" ) );
     }
 }

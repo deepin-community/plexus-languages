@@ -19,26 +19,22 @@ package org.codehaus.plexus.languages.java.jpms;
  * under the License.
  */
 
-import java.io.IOException;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.util.Collections;
+import static org.junit.Assert.assertEquals;
 
-public class MainClassModuleNameExtractorTest extends AbstractFilenameModuleNameExtractorTest
+import java.nio.file.Path;
+
+import org.junit.Test;
+
+public class CmdModuleNameExtractorTest
 {
-    @Override
-    protected ModuleNameExtractor getExtractor()
+    @Test
+    public void testMethodCount() throws Exception
     {
-        return new ModuleNameExtractor()
-        {
-            MainClassModuleNameExtractor extractor = new MainClassModuleNameExtractor( Paths.get( System.getProperty( "java.home" ) ) );
-            
-            @Override
-            public String extract( Path file )
-                throws IOException
-            {
-                return extractor.extract( Collections.singletonMap( file, file ) ).get( file );
-            }
-        };
+        // ensure that both implementations are in sync
+        assertEquals( 2, CmdModuleNameExtractor.class.getDeclaredMethods().length );
+        
+        // if these don't exist, a NoSuchMethodException is thrown
+        CmdModuleNameExtractor.class.getDeclaredMethod( "main", String[].class );
+        CmdModuleNameExtractor.class.getDeclaredMethod( "getModuleName", Path.class );
     }
 }

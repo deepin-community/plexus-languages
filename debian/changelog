@@ -1,3 +1,22 @@
+plexus-languages (1.1.1-2) unstable; urgency=medium
+
+  * Removed the backward compatibility patch
+  * Standards-Version updated to 4.6.2
+
+ -- Emmanuel Bourg <ebourg@apache.org>  Mon, 26 Dec 2022 12:18:48 +0100
+
+plexus-languages (1.1.1-1) unstable; urgency=medium
+
+  * New upstream release
+    - Restored the binary compatibility with the version 0.9.10
+    - Depend on libeclipse-sisu-maven-plugin-java
+      instead of libplexus-component-metadata-java
+    - Fixed the module path to build with the version of asm in Debian
+  * Standards-Version updated to 4.6.1
+  * Switch to debhelper level 13
+
+ -- Emmanuel Bourg <ebourg@apache.org>  Tue, 06 Dec 2022 11:02:47 +0100
+
 plexus-languages (0.9.10-2) unstable; urgency=medium
 
   * Fixed the build failure caused by the plexus-containers update
