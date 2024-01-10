@@ -3,7 +3,7 @@ Author: Emmanuel Bourg <ebourg@apache.org>
 Forwarded: not-needed
 --- a/plexus-java/src/test/java/org/codehaus/plexus/languages/java/jpms/LocationManagerTest.java
 +++ b/plexus-java/src/test/java/org/codehaus/plexus/languages/java/jpms/LocationManagerTest.java
-@@ -41,7 +41,7 @@
+@@ -39,7 +39,7 @@
  import org.junit.runner.RunWith;
  import org.mockito.Mock;
  

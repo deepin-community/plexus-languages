@@ -1,5 +1,3 @@
-package org.codehaus.plexus.languages.java.jpms;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
@@ -18,27 +16,13 @@ package org.codehaus.plexus.languages.java.jpms;
  * specific language governing permissions and limitations
  * under the License.
  */
-
-import java.io.IOException;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.util.Collections;
-
-public class MainClassModuleNameExtractorTest extends AbstractFilenameModuleNameExtractorTest
+module org.codehaus.plexus.languages.java 
 {
-    @Override
-    protected ModuleNameExtractor getExtractor()
-    {
-        return new ModuleNameExtractor()
-        {
-            MainClassModuleNameExtractor extractor = new MainClassModuleNameExtractor( Paths.get( System.getProperty( "java.home" ) ) );
-            
-            @Override
-            public String extract( Path file )
-                throws IOException
-            {
-                return extractor.extract( Collections.singletonMap( file, file ) ).get( file );
-            }
-        };
-    }
+    requires com.thoughtworks.qdox;
+    requires org.objectweb.asm;
+    
+    exports org.codehaus.plexus.languages.java.jpms;
+    exports org.codehaus.plexus.languages.java.version;
+    
+    provides org.codehaus.plexus.languages.java.jpms.LocationManager with org.codehaus.plexus.languages.java.jpms.LocationManager;
 }

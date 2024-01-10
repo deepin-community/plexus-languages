@@ -20,22 +20,20 @@ package org.codehaus.plexus.languages.java.jpms;
  */
 
 import static org.hamcrest.CoreMatchers.is;
-import static org.hamcrest.CoreMatchers.not;
 import static org.hamcrest.CoreMatchers.nullValue;
-import static org.hamcrest.CoreMatchers.startsWith;
-import static org.junit.Assert.assertThat;
-import static org.junit.Assume.assumeThat;
-import static org.mockito.Matchers.any;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
 import java.io.File;
-import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashSet;
 
-import org.codehaus.plexus.languages.java.jpms.ResolvePathsResult.ModuleNameSource;
+import org.codehaus.plexus.languages.java.jpms.JavaModuleDescriptor.JavaRequires.JavaModifier;
+
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -57,13 +55,20 @@ public class LocationManagerTest
     @Before
     public void onSetup()
     {
-        locationManager = new LocationManager( asmParser, qdoxParser );
+        locationManager = new LocationManager( qdoxParser ) 
+        {
+            @Override
+            ModuleInfoParser getBinaryModuleInfoParser( Path jdkHome )
+            {
+                return asmParser;
+            }
+        };
     }
 
     @Test
     public void testNoPaths() throws Exception
     {
-        ResolvePathsResult<File> result = locationManager.resolvePaths( ResolvePathsRequest.ofFiles( Collections.<File>emptyList() ) );
+        ResolvePathsResult<File> result = locationManager.resolvePaths( ResolvePathsRequest.ofFiles( Collections.emptyList() ) );
         assertThat( result.getMainModuleDescriptor(), nullValue( JavaModuleDescriptor.class) );
         assertThat( result.getPathElements().size(), is( 0 ) );
         assertThat( result.getModulepathElements().size(), is( 0 ) );
@@ -76,7 +81,7 @@ public class LocationManagerTest
     {
         JavaModuleDescriptor descriptor = JavaModuleDescriptor.newModule( "base" ).requires( "java.base" ).requires( "jdk.net" ).build();
         when( qdoxParser.fromSourcePath( any( Path.class ) ) ).thenReturn( descriptor );
-        ResolvePathsRequest<File> request = ResolvePathsRequest.ofFiles( Collections.<File>emptyList() ).setMainModuleDescriptor( mockModuleInfoJava.toFile() );
+        ResolvePathsRequest<File> request = ResolvePathsRequest.ofFiles( Collections.emptyList() ).setMainModuleDescriptor( mockModuleInfoJava.toFile() );
         
         ResolvePathsResult<File> result = locationManager.resolvePaths( request );
 
@@ -84,42 +89,6 @@ public class LocationManagerTest
         assertThat( result.getPathElements().size(), is( 0 ) );
         assertThat( result.getModulepathElements().size(), is( 0 ) );
         assertThat( result.getClasspathElements().size(), is( 0 ) );
-        assertThat( result.getPathExceptions().size(), is( 0 ) );
-    }
-
-    @Test
-    public void testEmptyWithReflectRequires() throws Exception
-    {
-        Path abc = Paths.get( "src/test/resources/empty/out" );
-        JavaModuleDescriptor descriptor = JavaModuleDescriptor.newModule( "base" ).requires( "a.b.c" ).build();
-        when( qdoxParser.fromSourcePath( any( Path.class ) ) ).thenReturn( descriptor );
-        ResolvePathsRequest<Path> request = ResolvePathsRequest.ofPaths( Collections.singletonList( abc ) ).setMainModuleDescriptor( mockModuleInfoJava );
-        
-        ResolvePathsResult<Path> result = locationManager.resolvePaths( request );
-
-        assertThat( result.getMainModuleDescriptor(), is( descriptor) );
-        assertThat( result.getPathElements().size(), is( 1 ) );
-        assertThat( result.getModulepathElements().size(), is( 0 ) );
-        assertThat( result.getClasspathElements().size(), is( 1 ) );
-        assertThat( result.getPathExceptions().size(), is( 0 ) );
-    }
-    
-    @Test
-    public void testManifestWithoutReflectRequires() throws Exception
-    {
-        Path abc = Paths.get( "src/test/resources/manifest.without/out" );
-        JavaModuleDescriptor descriptor = JavaModuleDescriptor.newModule( "base" ).requires( "any" ).build();
-        when( qdoxParser.fromSourcePath( any( Path.class ) ) ).thenReturn( descriptor );
-        ResolvePathsRequest<Path> request = ResolvePathsRequest.ofPaths( Collections.singletonList( abc ) ).setMainModuleDescriptor( mockModuleInfoJava );
-        
-//        when( reflectParser.getModuleDescriptor( abc ) ).thenReturn( JavaModuleDescriptor.newAutomaticModule( "auto.by.manifest" ).build() );
-        
-        ResolvePathsResult<Path> result = locationManager.resolvePaths( request );
-
-        assertThat( result.getMainModuleDescriptor(), is( descriptor) );
-        assertThat( result.getPathElements().size(), is( 1 ) );
-        assertThat( result.getModulepathElements().size(), is( 0 ) );
-        assertThat( result.getClasspathElements().size(), is( 1 ) );
         assertThat( result.getPathExceptions().size(), is( 0 ) );
     }
     
@@ -130,8 +99,6 @@ public class LocationManagerTest
         JavaModuleDescriptor descriptor = JavaModuleDescriptor.newModule( "base" ).requires( "auto.by.manifest" ).build();
         when( qdoxParser.fromSourcePath( any( Path.class ) ) ).thenReturn( descriptor );
         ResolvePathsRequest<Path> request = ResolvePathsRequest.ofPaths( Collections.singletonList( abc ) ).setMainModuleDescriptor( mockModuleInfoJava );
-        
-//        when( reflectParser.getModuleDescriptor( abc ) ).thenReturn( JavaModuleDescriptor.newAutomaticModule( "auto.by.manifest" ).build() );
         
         ResolvePathsResult<Path> result = locationManager.resolvePaths( request );
 
@@ -207,25 +174,11 @@ public class LocationManagerTest
     }
 
     @Test
-    public void testClassicJarNameStartsWithNumber() throws Exception
-    {
-        assumeThat( "Requires at least Java 9", System.getProperty( "java.version" ), not( startsWith( "1." ) ) );
-        
-        Path p = Paths.get( "src/test/resources/jar.empty.invalid.name/101-1.0.0-SNAPSHOT.jar" );
-        ResolvePathsRequest<Path> request = ResolvePathsRequest.ofPaths( Arrays.asList( p ) ).setMainModuleDescriptor( mockModuleInfoJava );
-        
-        ResolvePathsResult<Path> result = locationManager.resolvePaths( request );
-        
-        assertThat( result.getPathExceptions().size(), is( 1 ) );
-    }
-
-    @Test
     public void testNonJar() throws Exception
     {
         Path p = Paths.get( "src/test/resources/nonjar/pom.xml" );
-        when( asmParser.getModuleDescriptor( p ) ).thenThrow( new IOException() );
         
-        ResolvePathsRequest<Path> request = ResolvePathsRequest.ofPaths( Arrays.asList( p ) ).setMainModuleDescriptor( mockModuleInfoJava );
+        ResolvePathsRequest<Path> request = ResolvePathsRequest.ofPaths( Collections.singletonList( p ) ).setMainModuleDescriptor( mockModuleInfoJava );
         
         ResolvePathsResult<Path> result = locationManager.resolvePaths( request );
         
@@ -235,12 +188,12 @@ public class LocationManagerTest
     @Test
     public void testAdditionalModules() throws Exception
     {
-        Path p = Paths.get( "src/test/resources/jar.empty/plexus-java-1.0.0-SNAPSHOT.jar" );
+        Path p = Paths.get( "src/test/resources/mock/jar0.jar" );
         
         JavaModuleDescriptor descriptor = JavaModuleDescriptor.newModule( "base" ).build();
         when( qdoxParser.fromSourcePath( any( Path.class ) ) ).thenReturn( descriptor );
         ResolvePathsRequest<Path> request =
-            ResolvePathsRequest.ofPaths( Arrays.asList( p ) )
+            ResolvePathsRequest.ofPaths( Collections.singletonList( p ) )
                                .setMainModuleDescriptor( mockModuleInfoJava )
                                .setAdditionalModules( Collections.singletonList( "plexus.java" ) );
 
@@ -254,5 +207,342 @@ public class LocationManagerTest
         assertThat( result.getClasspathElements().size(), is( 0 ) );
         assertThat( result.getPathExceptions().size(), is( 0 ) );
     }
+    
+    @Test
+    public void testResolvePath() throws Exception
+    {
+        Path abc = Paths.get( "src/test/resources/mock/jar0.jar" );
+        ResolvePathRequest<Path> request = ResolvePathRequest.ofPath( abc );
+        
+        when( asmParser.getModuleDescriptor( abc ) ).thenReturn( JavaModuleDescriptor.newModule( "org.objectweb.asm" ).build() );
+        
+        ResolvePathResult result = locationManager.resolvePath( request );
+
+        assertThat( result.getModuleDescriptor(), is( JavaModuleDescriptor.newModule( "org.objectweb.asm" ).build() ) );
+        assertThat( result.getModuleNameSource(), is( ModuleNameSource.MODULEDESCRIPTOR ) );
+    }
+
+    @Test
+    public void testNoMatchingProviders() throws Exception
+    {
+        Path abc = Paths.get( "src/test/resources/mock/module-info.java" ); // some file called module-info.java
+        Path def = Paths.get( "src/test/resources/mock/jar0.jar" ); // any existing file
+        ResolvePathsRequest<Path> request = ResolvePathsRequest.ofPaths( def ).setMainModuleDescriptor( abc ).setIncludeAllProviders( true );
+        
+        when(  qdoxParser.fromSourcePath( abc ) ).thenReturn( JavaModuleDescriptor.newModule( "abc" ).uses( "device" ).build() );
+        when(  asmParser.getModuleDescriptor( def ) ).thenReturn( JavaModuleDescriptor.newModule( "def" ).provides( "tool", Arrays.asList( "java", "javac" ) ).build() );
+        
+        ResolvePathsResult<Path> result = locationManager.resolvePaths( request );
+        assertThat( result.getPathElements().size(), is( 1 ) );
+        assertThat( result.getModulepathElements().size(), is( 0 ) );
+        assertThat( result.getClasspathElements().size(), is( 1 ) );
+        assertThat( result.getPathExceptions().size(), is( 0 ) );
+    }
+
+    
+    @Test
+    public void testMainModuleDescriptorWithProviders() throws Exception
+    {
+        Path abc = Paths.get( "src/test/resources/mock/module-info.java" ); // some file called module-info.java
+        Path def = Paths.get( "src/test/resources/mock/jar0.jar" ); // any existing file
+        ResolvePathsRequest<Path> request = ResolvePathsRequest.ofPaths( def ).setMainModuleDescriptor( abc ).setIncludeAllProviders( true );
+        
+        when(  qdoxParser.fromSourcePath( abc ) ).thenReturn( JavaModuleDescriptor.newModule( "abc" ).uses( "tool" ).build() );
+        when(  asmParser.getModuleDescriptor( def ) ).thenReturn( JavaModuleDescriptor.newModule( "def" ).provides( "tool", Arrays.asList( "java", "javac" ) ).build() );
+        
+        ResolvePathsResult<Path> result = locationManager.resolvePaths( request );
+        assertThat( result.getPathElements().size(), is( 1 ) );
+        assertThat( result.getModulepathElements().size(), is( 1 ) );
+        assertThat( result.getClasspathElements().size(), is( 0 ) );
+        assertThat( result.getPathExceptions().size(), is( 0 ) );
+    }
+
+    @Test
+    public void testMainModuleDescriptorWithProvidersDontIncludeProviders() throws Exception
+    {
+        Path abc = Paths.get( "src/test/resources/mock/module-info.java" ); // some file called module-info.java
+        Path def = Paths.get( "src/test/resources/mock/jar0.jar" ); // any existing file
+        ResolvePathsRequest<Path> request = ResolvePathsRequest.ofPaths( def ).setMainModuleDescriptor( abc );
+        
+        when(  qdoxParser.fromSourcePath( abc ) ).thenReturn( JavaModuleDescriptor.newModule( "abc" ).uses( "tool" ).build() );
+        when(  asmParser.getModuleDescriptor( def ) ).thenReturn( JavaModuleDescriptor.newModule( "def" ).provides( "tool", Arrays.asList( "java", "javac" ) ).build() );
+        
+        ResolvePathsResult<Path> result = locationManager.resolvePaths( request );
+        assertThat( result.getPathElements().size(), is( 1 ) );
+        assertThat( result.getModulepathElements().size(), is( 0 ) );
+        assertThat( result.getClasspathElements().size(), is( 1 ) );
+        assertThat( result.getPathExceptions().size(), is( 0 ) );
+    }
+
+    @Test
+    public void testTransitiveProviders() throws Exception
+    {
+        Path abc = Paths.get( "src/test/resources/mock/module-info.java" ); // some file called module-info.java
+        Path def = Paths.get( "src/test/resources/mock/jar0.jar" ); // any existing file
+        Path ghi = Paths.get( "src/test/resources/mock/jar1.jar" ); // any existing file
+        ResolvePathsRequest<Path> request = ResolvePathsRequest.ofPaths( def, ghi ).setMainModuleDescriptor( abc ).setIncludeAllProviders( true );
+        
+        when(  qdoxParser.fromSourcePath( abc ) ).thenReturn( JavaModuleDescriptor.newModule( "abc" ).requires( "ghi" ).build() );
+        when(  asmParser.getModuleDescriptor( def ) ).thenReturn( JavaModuleDescriptor.newModule( "def" ).provides( "tool", Arrays.asList( "java", "javac" ) ).build() );
+        when(  asmParser.getModuleDescriptor( ghi ) ).thenReturn( JavaModuleDescriptor.newModule( "ghi" ).uses( "tool" ).build() );
+        
+        
+        ResolvePathsResult<Path> result = locationManager.resolvePaths( request );
+        assertThat( result.getPathElements().size(), is( 2 ) );
+        assertThat( result.getModulepathElements().size(), is( 2 ) );
+        assertThat( result.getClasspathElements().size(), is( 0 ) );
+        assertThat( result.getPathExceptions().size(), is( 0 ) );
+    }
+    
+    @Test
+    public void testDontIncludeProviders() throws Exception
+    {
+        Path abc = Paths.get( "src/test/resources/mock/module-info.java" ); // some file called module-info.java
+        Path def = Paths.get( "src/test/resources/mock/jar0.jar" ); // any existing file
+        Path ghi = Paths.get( "src/test/resources/mock/jar1.jar" ); // any existing file
+        ResolvePathsRequest<Path> request = ResolvePathsRequest.ofPaths( def, ghi ).setMainModuleDescriptor( abc );
+        
+        when(  qdoxParser.fromSourcePath( abc ) ).thenReturn( JavaModuleDescriptor.newModule( "abc" ).requires( "ghi" ).build() );
+        when(  asmParser.getModuleDescriptor( def ) ).thenReturn( JavaModuleDescriptor.newModule( "def" ).provides( "tool", Arrays.asList( "java", "javac" ) ).build() );
+        when(  asmParser.getModuleDescriptor( ghi ) ).thenReturn( JavaModuleDescriptor.newModule( "ghi" ).uses( "tool" ).build() );
+        
+        
+        ResolvePathsResult<Path> result = locationManager.resolvePaths( request );
+        assertThat( result.getPathElements().size(), is( 2 ) );
+        assertThat( result.getModulepathElements().size(), is( 1 ) );
+        assertThat( result.getClasspathElements().size(), is( 1 ) );
+        assertThat( result.getPathExceptions().size(), is( 0 ) );
+    }
+    
+    @Test
+    public void testAllowAdditionalModulesWithoutMainDescriptor() throws Exception 
+    {
+        Path def = Paths.get( "src/test/resources/mock/jar0.jar" ); // any existing file
+        Path ghi = Paths.get( "src/test/resources/mock/jar1.jar" ); // any existing file
+        ResolvePathsRequest<Path> request = ResolvePathsRequest.ofPaths( def, ghi ).setAdditionalModules( Collections.singleton( "def" ) );
+        
+        when(  asmParser.getModuleDescriptor( def ) ).thenReturn( JavaModuleDescriptor.newModule( "def" ).build() );
+        when(  asmParser.getModuleDescriptor( ghi ) ).thenReturn( JavaModuleDescriptor.newModule( "ghi" ).build() );
+        
+        ResolvePathsResult<Path> result = locationManager.resolvePaths( request );
+        
+        assertThat( result.getPathElements().size(), is( 2 ) );
+        assertThat( result.getModulepathElements().size(), is( 1 ) );
+        assertThat( result.getClasspathElements().size(), is( 1 ) );
+        assertThat( result.getPathExceptions().size(), is( 0 ) );
+    }
+    
+    @Test
+    public void testReuseModuleDescriptor() throws Exception
+    {
+        Path def = Paths.get( "src/test/resources/mock/jar0.jar" );
+        
+        ResolvePathRequest<Path> request1 = ResolvePathRequest.ofPath( def );
+        when(  asmParser.getModuleDescriptor( def ) ).thenReturn( JavaModuleDescriptor.newModule( "def" ).build() );
+     
+        ResolvePathResult result1 = locationManager.resolvePath( request1 );
+        
+        ResolvePathsRequest<Path> request2 = ResolvePathsRequest.ofPaths( def );
+        request2.setModuleDescriptor( result1.getModuleDescriptor() );
+        
+        ResolvePathsResult<Path> result2 = locationManager.resolvePaths( request2 );
+        
+        assertThat( result1.getModuleDescriptor(), is( result2.getMainModuleDescriptor() ) );
+    }
+    
+    @Test
+    public void testParseModuleDescriptor() throws Exception
+    {
+        Path descriptorPath = Paths.get( "src/test/resources/src.dir/module-info.java" );
+        when(  qdoxParser.fromSourcePath( descriptorPath ) ).thenReturn( JavaModuleDescriptor.newModule( "a.b.c" ).build() );
+        
+        ResolvePathResult result = locationManager.parseModuleDescriptor( descriptorPath );
+        assertThat( result.getModuleNameSource(), is( ModuleNameSource.MODULEDESCRIPTOR ) );
+        assertThat( result.getModuleDescriptor().name(), is( "a.b.c" ) );
+        
+        locationManager.parseModuleDescriptor( descriptorPath.toFile() );
+        assertThat( result.getModuleNameSource(), is( ModuleNameSource.MODULEDESCRIPTOR ) );
+        assertThat( result.getModuleDescriptor().name(), is( "a.b.c" ) );
+        
+        locationManager.parseModuleDescriptor( descriptorPath.toString() );
+        assertThat( result.getModuleNameSource(), is( ModuleNameSource.MODULEDESCRIPTOR ) );
+        assertThat( result.getModuleDescriptor().name(), is( "a.b.c" ) );
+    }
+    
+    @Test
+    public void testTransitiveStatic() throws Exception 
+    {
+        Path moduleA = Paths.get( "src/test/resources/mock/module-info.java" ); // some file called module-info.java
+        Path moduleB = Paths.get( "src/test/resources/mock/jar0.jar" ); // any existing file
+        Path moduleC = Paths.get( "src/test/resources/mock/jar1.jar" ); // any existing file
+        ResolvePathsRequest<Path> request = ResolvePathsRequest.ofPaths( moduleB, moduleC ).setMainModuleDescriptor( moduleA );
+        
+        when(  qdoxParser.fromSourcePath( moduleA ) ).thenReturn( JavaModuleDescriptor.newModule( "moduleA" )
+                                                                  .requires( "moduleB" ).build() );
+        when(  asmParser.getModuleDescriptor( moduleB ) ).thenReturn( JavaModuleDescriptor.newModule( "moduleB" )
+                                                                      .requires( Collections.singleton( JavaModifier.STATIC ), "moduleC" ).build() );
+        when(  asmParser.getModuleDescriptor( moduleC ) ).thenReturn( JavaModuleDescriptor.newModule( "moduleC" ).build() );
+        
+        
+        ResolvePathsResult<Path> result = locationManager.resolvePaths( request );
+        assertThat( result.getPathElements().size(), is( 2 ) );
+        assertThat( result.getModulepathElements().size(), is( 1 ) );
+        assertThat( result.getClasspathElements().size(), is( 1 ) );
+        assertThat( result.getPathExceptions().size(), is( 0 ) );
+    }
+
+    @Test
+    public void testDirectStatic() throws Exception 
+    {
+        Path moduleA = Paths.get( "src/test/resources/mock/module-info.java" ); // some file called module-info.java
+        Path moduleB = Paths.get( "src/test/resources/mock/jar0.jar" ); // any existing file
+        Path moduleC = Paths.get( "src/test/resources/mock/jar1.jar" ); // any existing file
+        Path moduleD = Paths.get( "src/test/resources/mock/jar2.jar" ); // any existing file
+        ResolvePathsRequest<Path> request = ResolvePathsRequest.ofPaths( moduleB, moduleC, moduleD )
+                .setMainModuleDescriptor( moduleA );
+                //.setIncludeStatic( true );
+        
+        when(  qdoxParser.fromSourcePath( moduleA ) ).thenReturn( JavaModuleDescriptor.newModule( "moduleA" )
+                                                                  .requires( "moduleB" )
+                                                                  .requires( Collections.singleton( JavaModifier.STATIC ), "moduleD")
+                                                                  .build() );
+        when(  asmParser.getModuleDescriptor( moduleB ) ).thenReturn( JavaModuleDescriptor.newModule( "moduleB" )
+                                                                      .requires( Collections.singleton( JavaModifier.STATIC ), "moduleC" )
+                                                                      .build() );
+        when(  asmParser.getModuleDescriptor( moduleC ) ).thenReturn( JavaModuleDescriptor.newModule( "moduleC" ).build() );
+        when(  asmParser.getModuleDescriptor( moduleD ) ).thenReturn( JavaModuleDescriptor.newModule( "moduleD" ).build() );
+        
+        
+        ResolvePathsResult<Path> result = locationManager.resolvePaths( request );
+        assertThat( result.getPathElements().size(), is( 3 ) );
+        assertThat( "content: " + result.getModulepathElements(), result.getModulepathElements().size(), is( 2 ) );
+        assertThat( result.getModulepathElements().containsKey( moduleB ), is( true ) );
+        assertThat( result.getModulepathElements().containsKey( moduleD ), is( true ) );
+        assertThat( result.getClasspathElements().size(), is( 1 ) );
+        assertThat( result.getClasspathElements().contains( moduleC ), is( true ) );
+        assertThat( result.getPathExceptions().size(), is( 0 ) );
+    }
+    
+    @Test
+    public void testDuplicateModule() throws Exception
+    {
+        Path moduleA = Paths.get( "src/test/resources/mock/module-info.java" ); // some file called module-info.java
+        Path moduleB = Paths.get( "src/test/resources/mock/jar0.jar" ); // any existing file
+        Path moduleC = Paths.get( "src/test/resources/mock/jar1.jar" ); // any existing file
+        
+        ResolvePathsRequest<Path> request = ResolvePathsRequest.ofPaths( moduleB, moduleC ).setMainModuleDescriptor( moduleA );
+        
+        when(  qdoxParser.fromSourcePath( moduleA ) ).thenReturn( JavaModuleDescriptor.newModule( "moduleA" )
+                                                                  .requires( "anonymous" )
+                                                                  .build() );
+        when(  asmParser.getModuleDescriptor( moduleB ) ).thenReturn( JavaModuleDescriptor.newModule( "anonymous" )
+                                                                      .build() );
+        when(  asmParser.getModuleDescriptor( moduleC ) ).thenReturn( JavaModuleDescriptor.newModule( "anonymous" )
+                                                                      .build() );
+        
+        ResolvePathsResult<Path> result = locationManager.resolvePaths( request );
+        assertThat( result.getPathElements().size(), is( 2 ) );
+        assertThat( result.getModulepathElements().size(), is( 1 ) );
+        assertThat( result.getModulepathElements().containsKey( moduleB ), is( true ) );
+        // with current default the duplicate will be ignored 
+        assertThat( result.getClasspathElements().size(), is( 0 ) );
+        assertThat( result.getPathExceptions().size(), is( 0 ) );
+    }
+    
+    @Test
+    public void testStaticTransitive() throws Exception 
+    {
+        Path moduleA = Paths.get( "src/test/resources/mock/module-info.java" ); // some file called module-info.java
+        Path moduleB = Paths.get( "src/test/resources/mock/jar0.jar" ); // any existing file
+        Path moduleC = Paths.get( "src/test/resources/mock/jar1.jar" ); // any existing file
+        Path moduleD = Paths.get( "src/test/resources/mock/jar2.jar" ); // any existing file
+        ResolvePathsRequest<Path> request = ResolvePathsRequest.ofPaths( moduleB, moduleC, moduleD ).setMainModuleDescriptor( moduleA );
+        
+        when(  qdoxParser.fromSourcePath( moduleA ) ).thenReturn( JavaModuleDescriptor.newModule( "moduleA" )
+                                                                  .requires( "moduleB" )
+                                                                  .build() );
+        when(  asmParser.getModuleDescriptor( moduleB ) ).thenReturn( JavaModuleDescriptor.newModule( "moduleB" )
+                                                                  .requires( new HashSet<>( Arrays.asList( JavaModifier.STATIC,JavaModifier.TRANSITIVE ) ), "moduleC" )
+                                                                  .build() );
+        when(  asmParser.getModuleDescriptor( moduleC ) ).thenReturn( JavaModuleDescriptor.newModule( "moduleC" )
+                                                                  .requires( new HashSet<>( Arrays.asList( JavaModifier.STATIC ) ), "moduleD" )
+                                                                  .build() );
+        when(  asmParser.getModuleDescriptor( moduleD ) ).thenReturn( JavaModuleDescriptor.newModule( "moduleD" ).build() );
+        
+        
+        ResolvePathsResult<Path> result = locationManager.resolvePaths( request );
+        assertThat( result.getPathElements().size(), is( 3 ) );
+        assertThat( "modulepathelements:" + result.getModulepathElements(),
+                result.getModulepathElements().size(), is( 2 ) );
+        assertThat( result.getModulepathElements().containsKey( moduleB ), is( true ) );
+        assertThat( result.getModulepathElements().containsKey( moduleC ), is( true ) );
+        assertThat( result.getClasspathElements().size(), is( 1 ) );
+        assertThat( result.getClasspathElements().contains( moduleD ), is( true ) );
+        assertThat( result.getPathExceptions().size(), is( 0 ) );
+    }
+
+    @Test
+    /**
+     * test case for https://issues.apache.org/jira/browse/MCOMPILER-481
+     */
+    public void includeDeeperRequiresStatic() throws Exception
+    {
+        Path moduleA = Paths.get( "src/test/resources/mock/module-info.java" ); // some file called module-info.java
+        Path moduleB = Paths.get( "src/test/resources/mock/jar0.jar" ); // any existing file
+        Path moduleC = Paths.get( "src/test/resources/mock/jar1.jar" ); // any existing file
+        ResolvePathsRequest<Path> request = ResolvePathsRequest.ofPaths( moduleA, moduleB, moduleC )
+                .setMainModuleDescriptor( moduleA )
+                .setIncludeStatic( true );
+        when( qdoxParser.fromSourcePath( moduleA ) ).thenReturn( JavaModuleDescriptor.newModule( "moduleA" )
+                .requires( "moduleB")
+                .build() );
+        when( asmParser.getModuleDescriptor( moduleB ) ).thenReturn( JavaModuleDescriptor.newModule( "moduleB" )
+                        .requires( Collections.singleton( JavaModifier.STATIC ), "moduleC" )
+                .build() );
+        when( asmParser.getModuleDescriptor( moduleC ) ).thenReturn( JavaModuleDescriptor.newModule( "moduleC" ).build() );
+
+        ResolvePathsResult<Path> result = locationManager.resolvePaths( request );
+        assertThat( "modulepathelements:" + result.getModulepathElements(),
+                result.getModulepathElements().size(), is( 2 ) );
+        assertThat( result.getModulepathElements().containsKey( moduleB ), is( true ) );
+        assertThat( result.getModulepathElements().containsKey( moduleC ), is( true ) );
+
+    }
+
+    @Test
+    /**
+     * test case for https://issues.apache.org/jira/browse/MCOMPILER-482
+     */
+    public void includeDeeperRequiresStaticTransitive() throws Exception
+    {
+        Path moduleA = Paths.get( "src/test/resources/mock/module-info.java" ); // some file called module-info.java core
+        Path moduleB = Paths.get( "src/test/resources/mock/jar0.jar" ); // any existing file
+        Path moduleC = Paths.get( "src/test/resources/mock/jar1.jar" ); // any existing file
+        Path moduleD = Paths.get( "src/test/resources/mock/jar2.jar" ); // any existing file
+        ResolvePathsRequest<Path> request = ResolvePathsRequest.ofPaths( moduleA, moduleB, moduleC, moduleD )
+                .setMainModuleDescriptor( moduleA )
+                .setIncludeStatic( true );
+        when( qdoxParser.fromSourcePath( moduleA ) ).thenReturn( JavaModuleDescriptor.newModule( "moduleA" )
+                .requires( "moduleB")
+                .build() );
+        when( asmParser.getModuleDescriptor( moduleB ) ).thenReturn( JavaModuleDescriptor.newModule( "moduleB" )
+                .requires( "moduleC" )
+                .requires( new HashSet<>( Arrays.asList( JavaModifier.STATIC,JavaModifier.TRANSITIVE ) ), "moduleD" )
+                .build() );
+        when( asmParser.getModuleDescriptor( moduleC ) ).thenReturn( JavaModuleDescriptor.newModule( "moduleC" )
+                .requires( new HashSet<>( Arrays.asList( JavaModifier.STATIC,JavaModifier.TRANSITIVE ) ), "moduleD" )
+                .build() );
+        when( asmParser.getModuleDescriptor( moduleD ) ).thenReturn( JavaModuleDescriptor.newModule( "moduleD" )
+                .build() );
+
+        ResolvePathsResult<Path> result = locationManager.resolvePaths( request );
+        assertThat( "modulepathelements:" + result.getModulepathElements(),
+                result.getModulepathElements().size(), is( 3 ) );
+        assertThat( result.getModulepathElements().containsKey( moduleB ), is( true ) );
+        assertThat( result.getModulepathElements().containsKey( moduleC ), is( true ) );
+        assertThat( result.getModulepathElements().containsKey( moduleD ), is( true ) );
+
+    }
+
 
 }

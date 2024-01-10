@@ -19,26 +19,30 @@ package org.codehaus.plexus.languages.java.jpms;
  * under the License.
  */
 
-import java.io.IOException;
 import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.util.Collections;
 
-public class MainClassModuleNameExtractorTest extends AbstractFilenameModuleNameExtractorTest
+/**
+ * This is just a placeholder class
+ * 
+ * @author Robert Scholte
+ * @since 1.0.0
+ */
+public class CmdModuleNameExtractor
 {
-    @Override
-    protected ModuleNameExtractor getExtractor()
+    public static void main( String[] args )
     {
-        return new ModuleNameExtractor()
-        {
-            MainClassModuleNameExtractor extractor = new MainClassModuleNameExtractor( Paths.get( System.getProperty( "java.home" ) ) );
-            
-            @Override
-            public String extract( Path file )
-                throws IOException
-            {
-                return extractor.extract( Collections.singletonMap( file, file ) ).get( file );
-            }
-        };
+        System.err.println( "Use at least Java 9 to execute this class" );
+        
+        System.exit( -1 );
+    }
+
+    /**
+     * 
+     * @param modulePath
+     * @return
+     */
+    public static String getModuleName( Path modulePath )
+    {
+        throw new UnsupportedOperationException();
     }
 }

@@ -1,2 +1,2 @@
-01-plexus-component-metadata-configuration.patch
 02-mockito-compatibility.patch
+04-module-info.patch

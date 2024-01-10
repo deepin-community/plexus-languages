@@ -1,6 +1,7 @@
 package org.codehaus.plexus.languages.java.version;
 
 import java.util.Objects;
+import java.util.StringTokenizer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -45,23 +46,26 @@ public class JavaVersion implements Comparable<JavaVersion>
     
     private static final Pattern startingDigits = Pattern.compile( "(\\d+)(.*)" );
     
-    private String rawVersion;
+    private final String rawVersion;
+    
+    private final boolean isMajor; 
 
-    private JavaVersion( String rawVersion )
+    private JavaVersion( String rawVersion, boolean isMajor )
     {
         this.rawVersion = rawVersion;
+        this.isMajor = isMajor;
     }
 
     /**
      * Lazy parse the version-scheme.
      * Actual parsing is done when calling {@link #compareTo(JavaVersion)}  
      * 
-     * @param s the version string
+     * @param s the version string, never {@code null}
      * @return the version wrapped in a JavadocVersion
      */
     public static JavaVersion parse( String s ) 
     {
-        return new JavaVersion( s );
+        return new JavaVersion( s, !s.startsWith( "1." ) );
     }
 
     @Override
@@ -183,6 +187,69 @@ public class JavaVersion implements Comparable<JavaVersion>
     {
         return this.compareTo( parse( other ) ) >= 0;
     }
+    
+    /**
+     * If original version starts with {@code "1."}, then remove this part from the version
+     * 
+     * @return a new JavaVersion if version has to be changed, otherwise return itself
+     */
+    public JavaVersion asMajor()
+    {
+        if ( !isMajor )
+        {
+            return new JavaVersion( rawVersion.substring( 2 ), true );
+        }
+        else
+        {
+            return this;
+        }
+    }
+    
+    /**
+     * Returns the original version
+     * 
+     * @return the raw version
+     */
+    public String getValue()
+    {
+        return rawVersion;
+    }
+
+    /**
+     * Returns a value respecting the nuber of groups.<br>
+     * If the original has more groups, the end of that value will be removed.<br>
+     * If the original has less groups, the value will be extended this ".0".<br>
+     * 
+     * <pre>
+     *   JavaVersion.parse( "1" ).getValue( 1 )   is "1" 
+     *   JavaVersion.parse( "1" ).getValue( 2 )   is "1.0" 
+     *   JavaVersion.parse( "2.1" ).getValue( 1 ) is "2" 
+     *   JavaVersion.parse( "2.1" ).getValue( 2 ) is "2.1" 
+     * </pre>
+     * 
+     * @param groups number of groups to return
+     * @return the version respecting the number of groups
+     */
+    public String getValue( int groups )
+    {
+        StringBuilder value = new StringBuilder();
+        StringTokenizer tokenizer = new StringTokenizer( rawVersion, "." );
+        
+        value.append( tokenizer.nextToken() );
+        for ( int group = 1 ; group < groups ; group++ )
+        {
+            value.append( '.' );
+            if( tokenizer.hasMoreTokens() )
+            {
+                value.append( tokenizer.nextToken() );
+            }
+            else
+            {
+                value.append( "0" );
+            }
+        }
+        return value.toString();
+    }
 
     @Override
     public String toString()
@@ -213,7 +280,27 @@ public class JavaVersion implements Comparable<JavaVersion>
         }
         
         JavaVersion other = (JavaVersion) obj;
-        if ( !Objects.equals( rawVersion, other.rawVersion ) )
+        if ( isMajor != other.isMajor )
+        {
+            final String thisOneDotVersion;
+            final String otherOneDotVersion;
+            if ( isMajor )
+            {
+                thisOneDotVersion = "1." + rawVersion;
+                otherOneDotVersion = other.rawVersion;
+            }
+            else
+            {
+                thisOneDotVersion = rawVersion;
+                otherOneDotVersion = "1." + other.rawVersion;
+            }
+            
+            if ( !Objects.equals( thisOneDotVersion, otherOneDotVersion ) )
+            {
+                    return false;
+            }
+        }
+        else if ( !Objects.equals( rawVersion, other.rawVersion ) )
         {
                 return false;
         }

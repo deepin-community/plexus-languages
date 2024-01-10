@@ -21,11 +21,12 @@ package org.codehaus.plexus.languages.java.jpms;
 
 import java.util.Collections;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 
 /**
- * Simple representation of a Module containing info required by this plugin.
+ * Simple representation of a ModuleDescriptor containing info required by this plugin.
  * It will provide only methods matching Java 9 ModuleDescriptor, so once Java 9  is required, we can easily switch 
  * 
  * @author Robert Scholte
@@ -38,9 +39,13 @@ public class JavaModuleDescriptor
     
     private boolean automatic;
 
-    private Set<JavaRequires> requires = new LinkedHashSet<JavaRequires>();
+    private Set<JavaRequires> requires = new LinkedHashSet<>();
     
-    private Set<JavaExports> exports = new LinkedHashSet<JavaExports>();
+    private Set<JavaExports> exports = new LinkedHashSet<>();
+    
+    private Set<String> uses = new LinkedHashSet<>();
+    
+    private Set<JavaProvides> provides = new LinkedHashSet<>();
     
     public String name()
     {
@@ -62,6 +67,16 @@ public class JavaModuleDescriptor
         return Collections.unmodifiableSet( exports );
     }
     
+    public Set<JavaProvides> provides()
+    {
+        return Collections.unmodifiableSet( provides );
+    }
+    
+    public Set<String> uses()
+    {
+        return Collections.unmodifiableSet( uses );
+    }
+    
     public static JavaModuleDescriptor.Builder newModule( String name )
     {
         return new Builder( name ).setAutomatic( false );
@@ -71,6 +86,60 @@ public class JavaModuleDescriptor
     {
         return new Builder( name ).setAutomatic( true );
     }  
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash( name, automatic, requires, exports );
+    }
+    
+    @Override
+    public boolean equals( Object obj )
+    {
+        if ( this == obj )
+        {
+            return true;
+        }
+        if ( obj == null )
+        {
+            return false;
+        }
+        if ( getClass() != obj.getClass() )
+        {
+            return false;
+        }
+
+        JavaModuleDescriptor other = (JavaModuleDescriptor) obj;
+        if ( automatic != other.automatic )
+        {
+            return false;
+        }
+        if ( !Objects.equals( name, other.name ) )
+        {
+            return false;
+        }
+        if ( !Objects.equals( requires, other.requires ) )
+        {
+            return false;
+        }
+        if ( !Objects.equals( exports, other.exports ) )
+        {
+            return false;
+        }
+        return true;
+    }
+
+    @Override
+    public String toString() {
+        return "JavaModuleDescriptor{" +
+                "name='" + name + '\'' +
+                ", automatic=" + automatic +
+                ", requires=" + requires +
+                ", exports=" + exports +
+                ", uses=" + uses +
+                ", provides=" + provides +
+                '}';
+    }
 
     /**
      * A JavaModuleDescriptor Builder
@@ -101,10 +170,9 @@ public class JavaModuleDescriptor
          * @param name The module name
          * @return This builder
          */
-        public Builder requires​( Set<JavaModuleDescriptor.JavaRequires.JavaModifier> modifiers, String name )
+        public Builder requires( Set<JavaModuleDescriptor.JavaRequires.JavaModifier> modifiers, String name )
         {
-            JavaRequires requires = new JavaRequires( modifiers, name );
-            jModule.requires.add( requires );
+            jModule.requires.add( new JavaRequires( modifiers, name ) );
             return this;
         }
 
@@ -116,8 +184,7 @@ public class JavaModuleDescriptor
          */
         public Builder requires( String name )
         {
-            JavaRequires requires = new JavaRequires( name );
-            jModule.requires.add( requires );
+            jModule.requires.add( new JavaRequires( name ) );
             return this;
         }
 
@@ -129,8 +196,7 @@ public class JavaModuleDescriptor
          */
         public Builder exports( String source )
         {
-            JavaExports exports = new JavaExports( source );
-            jModule.exports.add( exports );
+            jModule.exports.add( new JavaExports( source ) );
             return this;
         }
 
@@ -143,8 +209,25 @@ public class JavaModuleDescriptor
          */
         public Builder exports( String source, Set<String> targets )
         {
-            JavaExports exports = new JavaExports( source, targets );
-            jModule.exports.add( exports );
+            jModule.exports.add( new JavaExports( source, targets ) );
+            return this;
+        }
+        
+        /**
+         * Adds a service dependence.
+         * 
+         * @param service The service type
+         * @return This Builder
+         */
+        public Builder uses( String service )
+        {
+            jModule.uses.add( service );
+            return this;
+        }
+        
+        public Builder provides( String service, List<String> providers )
+        {
+            jModule.provides.add( new JavaProvides( service, providers ) );
             return this;
         }
 
@@ -160,7 +243,7 @@ public class JavaModuleDescriptor
     }
     
     /**
-     * Represents Module.Requires
+     * Represents ModuleDescriptor.Requires
      * 
      * @author Robert Scholte
      * @since 1.0.0
@@ -183,7 +266,7 @@ public class JavaModuleDescriptor
             this.name = name;
         }
 
-        public Set<JavaModifier> modifiers​()
+        public Set<JavaModifier> modifiers()
         {
             return modifiers;
         }
@@ -194,14 +277,14 @@ public class JavaModuleDescriptor
         }
         
         /**
-         * Represents Module.Requires.Modifier
+         * Represents ModuleDescriptor.Requires.Modifier
          * 
          * @author Robert Scholte
          * @since 1.0.0
          */
-        public static enum JavaModifier
+        public enum JavaModifier
         {
-            STATIC
+            STATIC, TRANSITIVE
         }
 
         @Override
@@ -237,10 +320,18 @@ public class JavaModuleDescriptor
             }
             return true;
         }
+
+        @Override
+        public String toString() {
+            return "JavaRequires{" +
+                    "modifiers=" + modifiers +
+                    ", name='" + name + '\'' +
+                    '}';
+        }
     }
     
     /**
-     * Represents Module.Requires
+     * Represents ModuleDescriptor.Exports
      * 
      * @author Robert Scholte
      * @since 1.0.0
@@ -306,7 +397,84 @@ public class JavaModuleDescriptor
             }
             return true;
         }
+
+        @Override
+        public String toString() {
+            return "JavaExports{" +
+                    "source='" + source + '\'' +
+                    ", targets=" + targets +
+                    '}';
+        }
+    }
+    
+    /**
+     * Represents ModuleDescriptor.Provides
+     * 
+     * @author Robert Scholte
+     * @since 1.0.0
+     */
+    public static class JavaProvides
+    {
+        private final String service;
         
+        private final List<String> providers;
+
+        private JavaProvides( String service, List<String> providers )
+        {
+            this.service = service;
+            this.providers = providers;
+        }
+
+        public String service()
+        {
+            return service;
+        }
         
+        public List<String> providers()
+        {
+            return providers;
+        }
+        
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash( service, providers );
+        }
+        
+        @Override
+        public boolean equals( Object obj )
+        {
+            if ( this == obj )
+            {
+                return true;
+            }
+            if ( obj == null )
+            {
+                return false;
+            }
+            if ( getClass() != obj.getClass() )
+            {
+                return false;
+            }
+            
+            JavaProvides other = (JavaProvides) obj;
+            if ( !Objects.equals( service, other.service ) )
+            {
+                    return false;
+            }
+            if ( !Objects.equals( providers, other.providers ) )
+            {
+                    return false;
+            }
+            return true;
+        }
+
+        @Override
+        public String toString() {
+            return "JavaProvides{" +
+                    "service='" + service + '\'' +
+                    ", providers=" + providers +
+                    '}';
+        }
     }
 }

@@ -33,14 +33,6 @@ import java.util.Map;
  */
 public class ResolvePathsResult<T>
 {
-    /**
-     * Source of the modulename 
-     */
-    public enum ModuleNameSource
-    {
-        FILENAME, MANIFEST, MODULEDESCRIPTOR
-    }
-    
     private JavaModuleDescriptor mainModuleDescriptor;
     
     /**
@@ -129,5 +121,16 @@ public class ResolvePathsResult<T>
     public Map<T, Exception> getPathExceptions()
     {
         return pathExceptions;
+    }
+
+    @Override
+    public String toString() {
+        return "ResolvePathsResult{" + System.lineSeparator() +
+                "mainModuleDescriptor=" + mainModuleDescriptor + System.lineSeparator() +
+                ", pathElements=" + pathElements + System.lineSeparator() +
+                ", modulepathElements=" + modulepathElements + System.lineSeparator() +
+                ", classpathElements=" + classpathElements + System.lineSeparator() +
+                ", pathExceptions=" + pathExceptions + System.lineSeparator() +
+                '}';
     }
 }

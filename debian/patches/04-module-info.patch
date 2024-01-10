@@ -1,0 +1,18 @@
+Description: Removes asm from the required modules (the Debian jar has no module info yet)
+Author: Emmanuel Bourg <ebourg@apache.org>
+Forwarded: not-needed
+--- a/plexus-java/src/main/java9/module-info.java
++++ b/plexus-java/src/main/java9/module-info.java
+@@ -19,10 +19,9 @@
+ module org.codehaus.plexus.languages.java 
+ {
+     requires com.thoughtworks.qdox;
+-    requires org.objectweb.asm;
+     
+     exports org.codehaus.plexus.languages.java.jpms;
+     exports org.codehaus.plexus.languages.java.version;
+     
+     provides org.codehaus.plexus.languages.java.jpms.LocationManager with org.codehaus.plexus.languages.java.jpms.LocationManager;
+-}
+\ No newline at end of file
++}

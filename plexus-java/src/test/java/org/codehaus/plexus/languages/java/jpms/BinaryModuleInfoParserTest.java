@@ -1,5 +1,6 @@
 package org.codehaus.plexus.languages.java.jpms;
 
+
 /*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
@@ -19,18 +20,27 @@ package org.codehaus.plexus.languages.java.jpms;
  * under the License.
  */
 
+import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.is;
 
 import java.io.IOException;
+import java.io.InputStream;
+import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Paths;
+import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.Set;
 
 import org.codehaus.plexus.languages.java.jpms.JavaModuleDescriptor.JavaExports;
+import org.codehaus.plexus.languages.java.jpms.JavaModuleDescriptor.JavaProvides;
 import org.codehaus.plexus.languages.java.jpms.JavaModuleDescriptor.JavaRequires;
+import org.codehaus.plexus.languages.java.version.JavaVersion;
 import org.junit.Test;
 
 public class BinaryModuleInfoParserTest
@@ -60,7 +70,7 @@ public class BinaryModuleInfoParserTest
     @Test
     public void testMultiReleaseJarDescriptor() throws Exception
     {
-        JavaModuleDescriptor descriptor = parser.getModuleDescriptor( Paths.get( "src/test/resources/jar.mr.descriptor/jloadr-1.0-SNAPSHOT.jar" ) );
+        JavaModuleDescriptor descriptor = parser.getModuleDescriptor( Paths.get( "src/test/resources/jar.mr.descriptor/jloadr-1.0-SNAPSHOT.jar" ), JavaVersion.parse( "17" ) );
         
         assertNotNull( descriptor);
         assertEquals( "de.adito.jloadr", descriptor.name() );
@@ -100,7 +110,7 @@ public class BinaryModuleInfoParserTest
         Set<JavaRequires> expectedRequires = JavaModuleDescriptor.newAutomaticModule( "_" )
             .requires( "java.base" )
             .requires( "java.xml" )
-            .requires​( Collections.singleton( JavaRequires.JavaModifier.STATIC ), "com.google.common" )
+            .requires( Collections.singleton( JavaRequires.JavaModifier.STATIC ), "com.google.common" )
             .build()
             .requires();
 
@@ -134,5 +144,61 @@ public class BinaryModuleInfoParserTest
     {
         parser.getModuleDescriptor( Paths.get( "src/test/resources/nonjar/pom.xml" ) );
     }
+    
+    @Test
+    public void testUses() throws Exception
+    {
+        try ( InputStream is = Files.newInputStream( Paths.get( "src/test/resources/dir.descriptor.uses/out/module-info.class" ) ) )
+        {
+            JavaModuleDescriptor descriptor = parser.parse( is );
+            
+            assertNotNull( descriptor);
+            assertEquals( new HashSet<>( Arrays.asList( "org.apache.logging.log4j.spi.Provider",
+                                                        "org.apache.logging.log4j.util.PropertySource",
+                                                        "org.apache.logging.log4j.message.ThreadDumpMessage$ThreadInfoFactory" ) ),
+                          descriptor.uses() );
+        }
+    }
+    
+    @Test
+    public void testProvides() throws Exception
+    {
+        JavaModuleDescriptor descriptor = parser.getModuleDescriptor( Paths.get( "src/test/resources/jar.service/threeten-extra-1.4.jar" ) );
+        
+        assertNotNull( descriptor );
+        assertEquals( 1, descriptor.provides().size() );
+        
+        JavaProvides provides = descriptor.provides().iterator().next();
+        assertEquals( "java.time.chrono.Chronology", provides.service() );
+        assertArrayEquals( new String[] { "org.threeten.extra.chrono.BritishCutoverChronology",
+            "org.threeten.extra.chrono.CopticChronology", "org.threeten.extra.chrono.DiscordianChronology",
+            "org.threeten.extra.chrono.EthiopicChronology", "org.threeten.extra.chrono.InternationalFixedChronology",
+            "org.threeten.extra.chrono.JulianChronology", "org.threeten.extra.chrono.PaxChronology",
+            "org.threeten.extra.chrono.Symmetry010Chronology", "org.threeten.extra.chrono.Symmetry454Chronology" },
+                           provides.providers().toArray( new String[0] ) );
 
+    }
+
+    @Test
+    public void testRequires() throws Exception
+    {
+        try ( InputStream is = Files.newInputStream( Paths.get( "src/test/resources/dir.descriptor.requires/out/module-info.class" ) ) )
+        {
+            JavaModuleDescriptor descriptor = parser.parse( is );
+            
+            assertNotNull( descriptor);
+            assertThat( descriptor.requires().size(), is( 5 ) );
+
+            Set<JavaRequires> expectedRequires = JavaModuleDescriptor.newAutomaticModule( "_" )
+                            .requires( "java.base" )
+                            .requires( "mod_r" )
+                            .requires( Collections.singleton( JavaRequires.JavaModifier.STATIC ), "mod_r_s" )
+                            .requires( Collections.singleton( JavaRequires.JavaModifier.TRANSITIVE ), "mod_r_t" )
+                            .requires( new HashSet<JavaRequires.JavaModifier>( Arrays.asList( JavaRequires.JavaModifier.STATIC, JavaRequires.JavaModifier.TRANSITIVE ) ), "mod_r_s_t" )
+                            .build()
+                            .requires();
+
+                        assertEquals( expectedRequires, descriptor.requires() );
+        }
+    }
 }
